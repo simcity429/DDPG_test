@@ -37,9 +37,9 @@ class Actor:
     def create_actor(self, name):
         with tf.variable_scope(name):
             state_input = tf.placeholder(dtype=tf.float32, shape=[None, self.state_dim], name='state_input')
-            out = tf.layers.dense(inputs=state_input, units=100, activation='elu')
+            out = tf.layers.dense(inputs=state_input, units=100, activation=tf.nn.elu)
             out = tf.layers.batch_normalization(out)
-            out = tf.layers.dense(inputs=out, units=100, activation='elu')
+            out = tf.layers.dense(inputs=out, units=100, activation=tf.nn.elu)
             out = tf.layers.dense(inputs=out, units=self.action_dim, activation='tanh', use_bias=False,
                                   kernel_initializer=tf.initializers.random_uniform(minval=-0.003, maxval=0.003))
         return state_input, out
@@ -88,12 +88,12 @@ class Critic:
         with tf.variable_scope(name):
             action_input = tf.placeholder(dtype=tf.float32, shape=[None, self.action_dim], name='action_input')
             state_input = tf.placeholder(dtype=tf.float32, shape=[None, self.state_dim], name='state_input')
-            process_state = tf.layers.dense(inputs=state_input, units=100, activation='elu')
+            process_state = tf.layers.dense(inputs=state_input, units=100, activation=tf.nn.elu)
             process_state = tf.layers.batch_normalization(process_state)
-            process_state = tf.layers.dense(inputs=process_state, units=100, activation='elu')
-            process_action = tf.layers.dense(inputs=action_input, units=100, activation='elu')
+            process_state = tf.layers.dense(inputs=process_state, units=100, activation=tf.nn.elu)
+            process_action = tf.layers.dense(inputs=action_input, units=100, activation=tf.nn.elu)
             process_action = tf.layers.batch_normalization(process_action)
-            out = tf.layers.dense(inputs=tf.add(process_state, process_action), units=50, activation='elu')
+            out = tf.layers.dense(inputs=tf.add(process_state, process_action), units=50, activation=tf.nn.elu)
             out = tf.layers.dense(inputs=out, units=1, kernel_initializer=tf.random_uniform_initializer(minval=-0.003, maxval=0.003))
         return action_input, state_input, out
 
