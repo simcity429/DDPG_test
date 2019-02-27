@@ -40,7 +40,7 @@ class Actor:
             out = tf.layers.dense(inputs=state_input, units=100, activation=tf.nn.elu)
             out = tf.layers.batch_normalization(out)
             out = tf.layers.dense(inputs=out, units=100, activation=tf.nn.elu)
-            out = tf.layers.dense(inputs=out, units=self.action_dim, activation='tanh', use_bias=False,
+            out = tf.layers.dense(inputs=out, units=self.action_dim, activation=tf.nn.tanh, use_bias=False,
                                   kernel_initializer=tf.initializers.random_uniform(minval=-0.003, maxval=0.003))
         return state_input, out
 
