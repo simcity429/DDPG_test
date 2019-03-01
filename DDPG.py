@@ -23,7 +23,7 @@ class Actor:
         self.tau = tau
         self.batch_size = batch_size
 
-        self.input, out = self.create_actor('actor')
+        self.input, self.out = self.create_actor('actor')
         self.target_input, self.target_out = self.create_actor('target_actor')
         self.main_network_param = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='actor')
         self.target_network_param = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='target_actor')
@@ -31,7 +31,8 @@ class Actor:
         self.action_gradient = tf.placeholder(dtype=tf.float32, shape=[None, self.action_dim], name='action_gradient')
         tmp = tf.gradients(self.out, self.main_network_param, -self.action_gradient)
         self.actor_gradient = list(map(lambda x: tf.div(x, self.batch_size), tmp))
-        self.optimize = tf.train.AdamOptimizer(self.lr).apply_gradients(zip(self.action_gradient, self.main_network_param))
+        grads_and_vars = zip(self.actor_gradient, self.main_network_param)
+        self.optimize = tf.train.AdamOptimizer(self.lr).apply_gradients(grads_and_vars)
 
 
     def create_actor(self, name):
@@ -118,8 +119,8 @@ class Critic:
 
 class DDPG:
     def __init__(self, state_dim, action_dim):
-        self.actor_lr = 0.001
-        self.critic_lr = 0.001
+        self.actor_lr = 0.0001
+        self.critic_lr = 0.0001
         self.tau = 0.1
         self.batch_size = 50
         self.sess = tf.Session()
@@ -133,13 +134,13 @@ class DDPG:
 
 
     def get_action(self, state, ep):
-        limit = 100
+        limit = 20
         if ep < limit and ep is not -1:
             action = np.random.normal(0.3, 1.5) + 0.5
             if action > 1:
-                action = 1
+                action = 1.0
             elif action < -1:
-                action = -1
+                action = -1.0
             print('real action: ', action)
             return [action]
         c = 0
@@ -150,13 +151,13 @@ class DDPG:
             c = 1 - (ep/10)
         state = np.reshape(state, [1, -1])
         action = self.actor.predict_target(state)[0]
-        print('real action: ', action)
-        noise = np.random.normal(0, 1.5*c)
+#        print('real action: ', action)
+        noise = np.random.normal(0, 0.5*c)
         action += noise
         if action > 1:
-            action[0] = 1
+            action[0] = 1.0
         elif action < -1:
-            action[0] = -1
+            action[0] = -1.0
         return action
 
 
@@ -175,7 +176,7 @@ class DDPG:
         return ret
 
     def train(self, ep):
-        limit = 100
+        limit = 20
         batch_sample = self.return_batch(self.batch_size)
         state_batch = []
         action_batch = []
@@ -189,7 +190,7 @@ class DDPG:
         q_batch = np.asarray(q_batch)
         if (ep>limit):
             print('action training')
-            actor_grads = self.critic.action_gradient(action_batch, state_batch)
+            actor_grads = self.critic.action_gradient(action_batch, state_batch)[0]
             self.actor.train(state_batch, actor_grads)
         self.critic.train(action_batch, state_batch, q_batch)
         return
@@ -203,14 +204,16 @@ class DDPG:
 
 
 
+
 if __name__ == "__main__":
+    mode = 'play'
     EPISODE = 100000
     gamma = 0.99
-    limit = 100
+    limit = 20
     G_dividor = 10
     state_dim = 2
     action_dim = 1
-    resume = False
+    resume = True
     env = gym.make('MountainCarContinuous-v0')
     observation_examples = np.array([env.observation_space.sample() for x in range(10000)])
     action_examples = np.array([env.action_space.sample() for x in range(10000)])
@@ -221,7 +224,7 @@ if __name__ == "__main__":
     agent = DDPG(state_dim, action_dim)
     saver = tf.train.Saver(tf.global_variables())
     if resume:
-        saver.restore(agent.session, './DDPG.ckpt')
+        saver.restore(agent.sess, './DDPG.ckpt')
         print('successfully restored')
     for ep in range(EPISODE):
         ep_state = []
@@ -235,15 +238,18 @@ if __name__ == "__main__":
         s = list(scaler_s.transform(s)[0])
         while True:
             step += 1
-            if len(agent.memory) > 2000:
+            if len(agent.memory) > 2000 and mode == 'train':
                 agent.train(ep)
             env.render()
             prev_s = s
-            a = agent.get_action(s, ep)
+            if mode=="train":
+                a = agent.get_action(s, ep)
+            else:
+                a = agent.get_action(s, -1)
             s, r, d, _ = env.step(a)
             if r > 50:
                 print('success')
-                r = 250
+                r = 100
             total_reward += r
             s = np.reshape(s, (-1, 2))
             s = list(scaler_s.transform(s)[0])
@@ -252,7 +258,7 @@ if __name__ == "__main__":
             ep_state.append(prev_s)
             ep_action.append(a)
             ep_reward.append(r)
-            if d:
+            if d and mode == 'train':
                 running_reward = 0
                 for reward in reversed(ep_reward):
                     running_reward = gamma*running_reward + reward
@@ -265,8 +271,11 @@ if __name__ == "__main__":
                     agent.store_history(history)
                 print('update target')
                 agent.update_target()
-                print('ep %d'%ep, 'total_reward: ', total_reward)
+                print('ep %d'%ep, ' total_reward: ', total_reward)
                 if (ep % 5 == 0):
-                    saver.save(agent.session, './DDPG.ckpt')
+                    saver.save(agent.sess, './DDPG.ckpt')
+                break
+            elif d:
+                print('ep %d'%ep, ' toral_reward: ', total_reward)
                 break
 
