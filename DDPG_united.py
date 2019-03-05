@@ -122,7 +122,7 @@ class DDPG:
         elif ep < 1000:
             ep /= 100
             c = 1 - (ep / 10)
-        state = np.reshape(state, [1, -1])
+        state = np.reshape(state, [-1, 2])
         action = self.actor_predict_target(state)[0]
         print('real action: ', action)
         noise = np.random.normal(0, 0.5 * c)
@@ -151,7 +151,8 @@ class DDPG:
         q_batch = np.asarray(q_batch)
         if (ep>limit):
             print('action training')
-            action_grad = self.get_action_grad(state_batch, action_batch)[0]
+            actor_action_batch = self.actor_predict_target(state_batch)
+            action_grad = self.get_action_grad(state_batch, actor_action_batch)[0]
             self.actor_train(state_batch, action_grad)
         self.critic_train(state_batch, action_batch, q_batch)
         return
@@ -172,14 +173,14 @@ class DDPG:
 
 
 if __name__ == "__main__":
-    mode = 'play'
+    mode = 'train'
     EPISODE = 100000
     gamma = 0.99
     limit = 20
     G_dividor = 10
     state_dim = 2
     action_dim = 1
-    resume = True
+    resume = False
     env = gym.make('MountainCarContinuous-v0')
     observation_examples = np.array([env.observation_space.sample() for x in range(10000)])
     action_examples = np.array([env.action_space.sample() for x in range(10000)])

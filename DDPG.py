@@ -190,7 +190,8 @@ class DDPG:
         q_batch = np.asarray(q_batch)
         if (ep>limit):
             print('action training')
-            actor_grads = self.critic.action_gradient(action_batch, state_batch)[0]
+            actor_action_batch = self.actor.predict_target(state_batch)
+            actor_grads = self.critic.action_gradient(actor_action_batch, state_batch)[0]
             self.actor.train(state_batch, actor_grads)
         self.critic.train(action_batch, state_batch, q_batch)
         return
@@ -206,14 +207,14 @@ class DDPG:
 
 
 if __name__ == "__main__":
-    mode = 'play'
+    mode = 'train'
     EPISODE = 100000
     gamma = 0.99
     limit = 20
     G_dividor = 10
     state_dim = 2
     action_dim = 1
-    resume = True
+    resume = False
     env = gym.make('MountainCarContinuous-v0')
     observation_examples = np.array([env.observation_space.sample() for x in range(10000)])
     action_examples = np.array([env.action_space.sample() for x in range(10000)])
